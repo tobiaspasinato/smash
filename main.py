@@ -16,6 +16,6 @@ bot = commands.Bot(command_prefix=',', intents=intents)
 
 @bot.command()
 async def ping(ctx):
-    await ctx.send('Pong!')
+    await ctx.send('Pongg!')
 
 bot.run(TOKEN)
