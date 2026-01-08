@@ -151,8 +151,12 @@ async def match(ctx, user1: discord.Member, user2: discord.Member, resultado1: i
     )
 
 @bot.command()
-async def user(ctx):
-    user_id = ctx.author.id
+async def user(ctx, member: discord.Member = None):
+    # Si no se menciona a nadie, mostrar el perfil del autor
+    if member is None:
+        member = ctx.author
+    
+    user_id = member.id
     
     cursor = connection.cursor()
     cursor.execute("SELECT nombre, elo FROM usuarios WHERE id = %s", (user_id,))
@@ -160,7 +164,7 @@ async def user(ctx):
     cursor.close()
     
     if not user_data:
-        await ctx.send(f"{ctx.author.mention} no estás registrado! Usa ,register primero.")
+        await ctx.send(f"{member.mention} no está registrado! Usa ,register primero.")
         return
     
     nombre = user_data[0]
@@ -174,7 +178,7 @@ async def user(ctx):
     
     embed.add_field(name="Jugador", value=f"**{nombre}**", inline=False)
     embed.add_field(name="ELO", value=f"**{elo_puntos}** puntos", inline=False)
-    embed.set_thumbnail(url=ctx.author.avatar.url if ctx.author.avatar else None)
+    embed.set_thumbnail(url=member.avatar.url if member.avatar else None)
     embed.set_footer(text=f"Solicitado por {ctx.author.name}")
     
     await ctx.send(embed=embed)
