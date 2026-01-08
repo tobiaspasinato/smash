@@ -179,6 +179,8 @@ async def user(ctx, member: discord.Member = None):
     embed.add_field(name="Jugador", value=f"**{nombre}**", inline=False)
     embed.add_field(name="ELO", value=f"**{elo_puntos}** puntos", inline=False)
     embed.set_thumbnail(url=member.avatar.url if member.avatar else None)
+    if (user_id == 609812507845984326):
+        embed.add_field(name="", value="*El Femboy supremo*", inline=False)
     embed.set_footer(text=f"Solicitado por {ctx.author.name}")
     
     await ctx.send(embed=embed)
@@ -215,7 +217,6 @@ async def top(ctx):
         ranking += f"{emoji} {nombre} - **{elo}** ELO\n"
     
     embed.add_field(name="Rankings", value=ranking, inline=False)
-    embed.set_footer(text=f"Total de jugadores: {len(top_players)}")
     
     await ctx.send(embed=embed)
 
