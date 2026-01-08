@@ -135,7 +135,7 @@ async def top(ctx):
         await ctx.send("No hay jugadores registrados aún.")
         return
     
-    mensaje = "🏆 **TOP 10 MEJORES JUGADORES** 🏆\n\n"
+    mensaje = "🏆 **TOP 10 MEJORES JUGADORES** 🏆\n```\n"
     for i, (nombre, elo) in enumerate(top_players, 1):
         if i == 1:
             emoji = "🥇"
@@ -145,7 +145,8 @@ async def top(ctx):
             emoji = "🥉"
         else:
             emoji = f"{i}."
-        mensaje += f"{emoji} **{nombre}** - {elo} ELO\n"
+        mensaje += f"{emoji} {nombre:<30} {elo:>5} ELO\n"
+    mensaje += "```"
     
     await ctx.send(mensaje)
 
