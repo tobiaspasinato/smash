@@ -86,6 +86,49 @@ async def match(ctx, user1: discord.Member, user2: discord.Member, resultado1: i
         cursor.close()
         return
     
+    # Solicitar confirmación de ambos usuarios
+    await ctx.send(
+        f"⚠️ **Confirmación de Match**\n"
+        f"{user1.mention} vs {user2.mention}\n"
+        f"Resultado: {resultado1} - {resultado2}\n"
+        f"Ganador: {ganador_mention}\n\n"
+        f"**Ambos jugadores deben escribir `1` para confirmar o `0` para cancelar.**"
+    )
+    
+    confirmaciones = {user1.id: False, user2.id: False}
+    
+    def check(message):
+        return (
+            message.author.id in [user1.id, user2.id] and 
+            message.content in ["1", "0"] and 
+            message.channel == ctx.channel
+        )
+    
+    import asyncio
+    
+    try:
+        while not all(confirmaciones.values()):
+            mensaje = await bot.wait_for('message', timeout=60.0, check=check)
+            
+            # Si alguien escribe 0, cancelar
+            if mensaje.content == "0":
+                await ctx.send(f"❌ {mensaje.author.mention} ha cancelado el match.")
+                cursor.close()
+                return
+            
+            if not confirmaciones[mensaje.author.id]:
+                confirmaciones[mensaje.author.id] = True
+                await ctx.send(f"✅ {mensaje.author.mention} ha confirmado!")
+                
+                if not all(confirmaciones.values()):
+                    pendiente = user1 if not confirmaciones[user1.id] else user2
+                    await ctx.send(f"⏳ Esperando confirmación de {pendiente.mention}...")
+    
+    except asyncio.TimeoutError:
+        await ctx.send("❌ Tiempo de confirmación agotado. El match ha sido cancelado.")
+        cursor.close()
+        return
+    
     # Generar puntos aleatorios entre 19 y 25
     puntos = random.randint(19, 25)
     
@@ -100,7 +143,8 @@ async def match(ctx, user1: discord.Member, user2: discord.Member, resultado1: i
     cursor.close()
     
     await ctx.send(
-        f"Match finalizado: {ganador_mention} ganó contra {perdedor_mention}\n"
+        f"✅ **Match confirmado y registrado!**\n"
+        f"{ganador_mention} ganó contra {perdedor_mention}\n"
         f"**Puntos:** {puntos}\n"
         f"{ganador_mention}: {elo_ganador} → {nuevo_elo_ganador} (+{puntos})\n"
         f"{perdedor_mention}: {elo_perdedor} → {nuevo_elo_perdedor} (-{puntos})"
@@ -122,7 +166,18 @@ async def user(ctx):
     nombre = user_data[0]
     elo_puntos = user_data[1]
     
-    await ctx.send(f"**{nombre}**\nELO: {elo_puntos}")
+    # Crear el embed
+    embed = discord.Embed(
+        title="📊 Perfil de Jugador",
+        color=discord.Color.blue()
+    )
+    
+    embed.add_field(name="Jugador", value=f"**{nombre}**", inline=False)
+    embed.add_field(name="ELO", value=f"**{elo_puntos}** puntos", inline=False)
+    embed.set_thumbnail(url=ctx.author.avatar.url if ctx.author.avatar else None)
+    embed.set_footer(text=f"Solicitado por {ctx.author.name}")
+    
+    await ctx.send(embed=embed)
 
 @bot.command()
 async def top(ctx):
@@ -135,7 +190,15 @@ async def top(ctx):
         await ctx.send("No hay jugadores registrados aún.")
         return
     
-    mensaje = "🏆 **TOP 10 MEJORES JUGADORES** 🏆\n```\n"
+    # Crear el embed
+    embed = discord.Embed(
+        title="🏆 TOP 10 MEJORES JUGADORES 🏆",
+        description="Ranking de los mejores jugadores por ELO",
+        color=discord.Color.gold()
+    )
+    
+    # Agregar los jugadores
+    ranking = ""
     for i, (nombre, elo) in enumerate(top_players, 1):
         if i == 1:
             emoji = "🥇"
@@ -144,10 +207,12 @@ async def top(ctx):
         elif i == 3:
             emoji = "🥉"
         else:
-            emoji = f"{i}."
-        mensaje += f"{emoji} {nombre:<30} {elo:>5} ELO\n"
-    mensaje += "```"
+            emoji = f"**{i}.**"
+        ranking += f"{emoji} {nombre} - **{elo}** ELO\n"
     
-    await ctx.send(mensaje)
+    embed.add_field(name="Rankings", value=ranking, inline=False)
+    embed.set_footer(text=f"Total de jugadores: {len(top_players)}")
+    
+    await ctx.send(embed=embed)
 
 bot.run(TOKEN)
