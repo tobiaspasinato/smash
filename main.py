@@ -2,16 +2,35 @@ import discord
 import requests
 from discord.ext import commands
 from dotenv import load_dotenv
-import mysql.connector
+import psycopg2
 import os
 import random
 
 load_dotenv()
 
 TOKEN = os.getenv('DISCORD_TOKEN')
-connection = mysql.connector.connect(user=os.getenv('DB_USER'), password=os.getenv('DB_PASSWORD'), host=os.getenv('DB_HOST'), database=os.getenv('DB_NAME'), port=int(os.getenv('DB_PORT')))
+connection = psycopg2.connect(
+    host=os.getenv('PGHOST'),
+    database=os.getenv('PGDATABASE'),
+    user=os.getenv('PGUSER'),
+    password=os.getenv('PGPASSWORD'),
+    sslmode=os.getenv('PGSSLMODE')
+)
 
 print(connection)
+
+# Crear tabla si no existe
+cursor = connection.cursor()
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS usuarios (
+        id_de_discord BIGINT PRIMARY KEY,
+        usuario TEXT NOT NULL,
+        elo INTEGER NOT NULL
+    )
+""")
+connection.commit()
+cursor.close()
+print("Tabla 'usuarios' verificada/creada exitosamente")
 
 intents = discord.Intents.all()
 intents.messages = True
@@ -27,7 +46,7 @@ async def register(ctx):
     cursor = connection.cursor()
     
     # Verificar si el usuario ya existe
-    cursor.execute("SELECT id FROM usuarios WHERE id = %s", (user_id,))
+    cursor.execute("SELECT id_de_discord FROM usuarios WHERE id_de_discord = %s", (user_id,))
     existing_user = cursor.fetchone()
     
     if existing_user:
@@ -36,7 +55,7 @@ async def register(ctx):
         return
     
     # Registrar nuevo usuario con elo inicial de 0
-    cursor.execute("INSERT INTO usuarios (id, nombre, elo) VALUES (%s, %s, %s)", (user_id, username, 0))
+    cursor.execute("INSERT INTO usuarios (id_de_discord, usuario, elo) VALUES (%s, %s, %s)", (user_id, username, 0))
     connection.commit()
     cursor.close()
     
@@ -50,10 +69,10 @@ async def match(ctx, user1: discord.Member, user2: discord.Member, resultado1: i
     cursor = connection.cursor()
     
     # Verificar que ambos usuarios estén registrados
-    cursor.execute("SELECT id, nombre, elo FROM usuarios WHERE id = %s", (user1.id,))
+    cursor.execute("SELECT id_de_discord, usuario, elo FROM usuarios WHERE id_de_discord = %s", (user1.id,))
     user1_data = cursor.fetchone()
     
-    cursor.execute("SELECT id, nombre, elo FROM usuarios WHERE id = %s", (user2.id,))
+    cursor.execute("SELECT id_de_discord, usuario, elo FROM usuarios WHERE id_de_discord = %s", (user2.id,))
     user2_data = cursor.fetchone()
     
     if not user1_data:
@@ -137,8 +156,8 @@ async def match(ctx, user1: discord.Member, user2: discord.Member, resultado1: i
     nuevo_elo_perdedor = max(0, elo_perdedor - puntos)  # No puede ser negativo
     
     # Actualizar ELO en la base de datos
-    cursor.execute("UPDATE usuarios SET elo = %s WHERE id = %s", (nuevo_elo_ganador, ganador_id))
-    cursor.execute("UPDATE usuarios SET elo = %s WHERE id = %s", (nuevo_elo_perdedor, perdedor_id))
+    cursor.execute("UPDATE usuarios SET elo = %s WHERE id_de_discord = %s", (nuevo_elo_ganador, ganador_id))
+    cursor.execute("UPDATE usuarios SET elo = %s WHERE id_de_discord = %s", (nuevo_elo_perdedor, perdedor_id))
     connection.commit()
     cursor.close()
     
@@ -159,7 +178,7 @@ async def user(ctx, member: discord.Member = None):
     user_id = member.id
     
     cursor = connection.cursor()
-    cursor.execute("SELECT nombre, elo FROM usuarios WHERE id = %s", (user_id,))
+    cursor.execute("SELECT usuario, elo FROM usuarios WHERE id_de_discord = %s", (user_id,))
     user_data = cursor.fetchone()
     cursor.close()
     
@@ -167,7 +186,7 @@ async def user(ctx, member: discord.Member = None):
         await ctx.send(f"{member.mention} no está registrado! Usa ,register primero.")
         return
     
-    nombre = user_data[0]
+    usuario = user_data[0]
     elo_puntos = user_data[1]
     
     # Crear el embed
@@ -176,7 +195,7 @@ async def user(ctx, member: discord.Member = None):
         color=discord.Color.blue()
     )
     
-    embed.add_field(name="Jugador", value=f"**{nombre}**", inline=False)
+    embed.add_field(name="Jugador", value=f"**{usuario}**", inline=False)
     embed.add_field(name="ELO", value=f"**{elo_puntos}** puntos", inline=False)
     embed.set_thumbnail(url=member.avatar.url if member.avatar else None)
     if (user_id == 609812507845984326):
@@ -188,7 +207,7 @@ async def user(ctx, member: discord.Member = None):
 @bot.command()
 async def top(ctx):
     cursor = connection.cursor()
-    cursor.execute("SELECT nombre, elo FROM usuarios ORDER BY elo DESC LIMIT 10")
+    cursor.execute("SELECT usuario, elo FROM usuarios ORDER BY elo DESC LIMIT 10")
     top_players = cursor.fetchall()
     cursor.close()
     
@@ -205,7 +224,7 @@ async def top(ctx):
     
     # Agregar los jugadores
     ranking = ""
-    for i, (nombre, elo) in enumerate(top_players, 1):
+    for i, (usuario, elo) in enumerate(top_players, 1):
         if i == 1:
             emoji = "🥇"
         elif i == 2:
@@ -214,7 +233,7 @@ async def top(ctx):
             emoji = "🥉"
         else:
             emoji = f"**{i}.**"
-        ranking += f"{emoji} {nombre} - **{elo}** ELO\n"
+        ranking += f"{emoji} {usuario} - **{elo}** ELO\n"
     
     embed.add_field(name="Rankings", value=ranking, inline=False)
     
