@@ -9,13 +9,21 @@ import random
 load_dotenv()
 
 TOKEN = os.getenv('DISCORD_TOKEN')
-connection = psycopg2.connect(
-    host=os.getenv('PGHOST'),
-    database=os.getenv('PGDATABASE'),
-    user=os.getenv('PGUSER'),
-    password=os.getenv('PGPASSWORD'),
-    sslmode=os.getenv('PGSSLMODE')
-)
+
+# Intentar primero con DATABASE_URL si existe (formato de Neon)
+database_url = os.getenv('DATABASE_URL')
+if database_url:
+    connection = psycopg2.connect(database_url)
+else:
+    # Si no, usar variables individuales
+    connection = psycopg2.connect(
+        host=os.getenv('PGHOST'),
+        port=os.getenv('PGPORT', '5432'),
+        database=os.getenv('PGDATABASE'),
+        user=os.getenv('PGUSER'),
+        password=os.getenv('PGPASSWORD'),
+        sslmode=os.getenv('PGSSLMODE', 'require')
+    )
 
 print(connection)
 
