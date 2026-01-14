@@ -19,19 +19,6 @@ connection = psycopg2.connect(
 
 print(connection)
 
-# Crear tabla si no existe
-cursor = connection.cursor()
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS usuarios (
-        id_de_discord BIGINT PRIMARY KEY,
-        usuario TEXT NOT NULL,
-        elo INTEGER NOT NULL
-    )
-""")
-connection.commit()
-cursor.close()
-print("Tabla 'usuarios' verificada/creada exitosamente")
-
 intents = discord.Intents.all()
 intents.messages = True
 intents.members = True
