@@ -3,6 +3,7 @@ import requests
 from discord.ext import commands
 from dotenv import load_dotenv
 import psycopg2
+from psycopg2 import pool
 import os
 import random
 
@@ -10,22 +11,38 @@ load_dotenv()
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-# Intentar primero con DATABASE_URL si existe (formato de Neon)
-database_url = os.getenv('DATABASE_URL')
-if database_url:
-    connection = psycopg2.connect(database_url)
-else:
-    # Si no, usar variables individuales
-    connection = psycopg2.connect(
-        host=os.getenv('PGHOST'),
-        port=os.getenv('PGPORT', '5432'),
-        database=os.getenv('PGDATABASE'),
-        user=os.getenv('PGUSER'),
-        password=os.getenv('PGPASSWORD'),
-        sslmode=os.getenv('PGSSLMODE', 'require')
-    )
+# Crear pool de conexiones para manejar reconexiones automáticas
+try:
+    # Intentar primero con DATABASE_URL si existe (formato de Neon)
+    database_url = os.getenv('DATABASE_URL')
+    if database_url:
+        connection_pool = pool.SimpleConnectionPool(
+            1, 10,
+            database_url
+        )
+    else:
+        # Si no, usar variables individuales
+        connection_pool = pool.SimpleConnectionPool(
+            1, 10,
+            host=os.getenv('PGHOST'),
+            port=os.getenv('PGPORT', '5432'),
+            database=os.getenv('PGDATABASE'),
+            user=os.getenv('PGUSER'),
+            password=os.getenv('PGPASSWORD'),
+            sslmode=os.getenv('PGSSLMODE', 'require')
+        )
+    print("✅ Pool de conexiones a la base de datos creado exitosamente")
+except Exception as e:
+    print(f"❌ Error al crear el pool de conexiones: {e}")
+    exit(1)
 
-print(connection)
+# Función helper para obtener una conexión del pool
+def get_db_connection():
+    return connection_pool.getconn()
+
+# Función helper para devolver la conexión al pool
+def release_db_connection(conn):
+    connection_pool.putconn(conn)
 
 intents = discord.Intents.all()
 intents.messages = True
