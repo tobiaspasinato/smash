@@ -36,9 +36,24 @@ except Exception as e:
     print(f"❌ Error al crear el pool de conexiones: {e}")
     exit(1)
 
-# Función helper para obtener una conexión del pool
+# Función helper para obtener una conexión del pool con validación
 def get_db_connection():
-    return connection_pool.getconn()
+    conn = connection_pool.getconn()
+    try:
+        # Validar que la conexión esté activa
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.close()
+        return conn
+    except (psycopg2.OperationalError, psycopg2.InterfaceError):
+        # Si la conexión está cerrada, cerrarla completamente y obtener una nueva
+        try:
+            conn.close()
+        except:
+            pass
+        connection_pool.putconn(conn, close=True)
+        # Obtener una nueva conexión
+        return connection_pool.getconn()
 
 # Función helper para devolver la conexión al pool
 def release_db_connection(conn):
